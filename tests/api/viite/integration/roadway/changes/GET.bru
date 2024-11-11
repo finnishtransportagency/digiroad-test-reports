@@ -1,0 +1,45 @@
+meta {
+  name: Returns all the changes made to the roadways after and including the given date.
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/viite/integration/roadway/changes?since=2020-01-01
+  body: none
+  auth: none
+}
+
+params:query {
+  since: 2020-01-01
+  ~since: {{since_var}}
+}
+
+headers {
+  X-API-Key: {{X-API-Key}}
+}
+
+vars:pre-request {
+  since_var: 2020-01-01
+}
+
+assert {
+  res.status: eq 200
+  res.statusText: eq OK
+  ~res.responseTime: lte 10000
+}
+
+tests {
+  
+  const { common_schema_test_for_response_data_and_schema_js_file, parse_test_data_from_json_file } = require('./tests/common_tests/common_schema_test_for_all.js');
+  const { common_tests_for_all } = require('./tests/common_tests/common_tests_for_all.js');
+  const { common_tests_for_valid_credentials } = require('./tests/common_tests/common_tests_for_valid_credentials.js');
+    
+  const data = res.body;
+  // const data = parse_test_data_from_json_file('./tests/api/viite/integration/summary', 'test_data_for_valid_credentials.json'); 
+  
+  common_schema_test_for_response_data_and_schema_js_file(data, './tests/api/viite/integration/roadway/changes', 'schema_for_valid_credentials.js'); 
+  common_tests_for_all(); 
+  common_tests_for_valid_credentials();
+  
+}

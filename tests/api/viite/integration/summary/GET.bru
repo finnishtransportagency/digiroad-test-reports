@@ -1,0 +1,185 @@
+meta {
+  name: Returns the whole road network address listing ("summary") for current, or historical road network.
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/viite/integration/summary
+  body: none
+  auth: none
+}
+
+params:query {
+  ~since: 1989-01-01
+  ~since: {{since_var}}
+}
+
+headers {
+  X-API-Key: {{X-API-Key}}
+}
+
+vars:pre-request {
+  since_var: 1989-01-01
+}
+
+assert {
+  res.status: eq 200
+  res.statusText: eq OK
+  ~res.responseTime: lte 10000
+}
+
+tests {
+  
+  const { common_schema_test_for_response_data_and_schema_js_file, parse_test_data_from_json_file } = require('./tests/common_tests/common_schema_test_for_all.js');
+  const { common_tests_for_all } = require('./tests/common_tests/common_tests_for_all.js');
+  const { common_tests_for_valid_credentials } = require('./tests/common_tests/common_tests_for_valid_credentials.js');
+    
+  const data = res.body;
+  // const data = parse_test_data_from_json_file('./tests/api/viite/integration/summary', 'test_data_for_valid_credentials.json'); 
+  
+  common_schema_test_for_response_data_and_schema_js_file(data, './tests/api/viite/integration/summary', 'schema_for_valid_credentials.js'); 
+  common_tests_for_all(); 
+  common_tests_for_valid_credentials();
+  
+  test(`Each ELY should be present in data`, async () => {
+    const ELYs = [1,2,3,4,8,9,10,12,14].map(x => `${x}`); 
+    const counts = Object.fromEntries(ELYs.map(x => [x, 0])); 
+  
+    for (const road of data) {
+      for (const roadpart of road.roadparts) {
+        if (counts.hasOwnProperty(roadpart.ely)) {
+          counts[roadpart.ely] += 1;
+        }
+      }
+    }
+  
+    const missingELYs = ELYs.filter(ely => counts[ely] === 0);
+  
+    const success = missingELYs.length === 0;
+    const message = success
+      ? 'All ELYs are represented in the data.'
+      : `The following ELYs are missing in the data: ${missingELYs.join(', ')}`;
+  
+    assert.equal(success, true, message);
+  });
+  
+  test(`Each administrative class should be present in data`, async () => {
+    const administrative_classes = [1, 2, 3].map(x => `${x}`);
+    const counts = Object.fromEntries(administrative_classes.map(x => [x, 0]));
+  
+    for (const road of data) {
+      for (const roadpart of road.roadparts) {
+        if (counts.hasOwnProperty(roadpart.administrative_class)) {
+          counts[roadpart.administrative_class] += 1;
+        }
+      }
+    }
+  
+    const missingAdministrativeClasses = administrative_classes.filter(administrative_class => counts[administrative_class] === 0);
+  
+    const success = missingAdministrativeClasses.length === 0;
+    const message = success
+      ? 'All administrative classes are represented in the data.'
+      : `The following administrative classes are missing in the data: ${missingAdministrativeClasses.join(', ')}`;
+  
+    assert.equal(success, true, message);
+  });
+  
+  test(`Each road number should be present only once`, async () => {
+    const roadnumberCounts = new Map();
+    const duplicates = [];
+  
+    for (const road of data) {
+      const roadnumber = road.roadnumber;
+  
+      if (roadnumberCounts.has(roadnumber)) {
+        roadnumberCounts.set(roadnumber, roadnumberCounts.get(roadnumber) + 1);
+        if (roadnumberCounts.get(roadnumber) === 2) {
+          // Only report duplicates when they appear more than once
+          duplicates.push(roadnumber);
+        }
+      } else {
+        roadnumberCounts.set(roadnumber, 1);
+      }
+    }
+  
+    const success = duplicates.length === 0;
+    const message = success
+      ? 'All roadnumbers appear in the data only once.'
+      : `The following roadnumbers appear more than once: ${duplicates.join(', ')}`;
+  
+    assert.equal(success, true, message);
+  });
+  
+  test('Tracks 1 and 2 should be of equal length', async () => {
+    const mismatchedRoads = [];
+  
+    for (const road of data) {
+      let track_1_total_length = 0;
+      let track_2_total_length = 0;
+  
+      for (const roadpart of road.roadparts) {
+        for (const track of roadpart.tracks) {
+          const length = track.endaddressM - track.startaddressM;
+  
+          if (track.track === 1) {
+            track_1_total_length += length;
+          } else if (track.track === 2) {
+            track_2_total_length += length;
+          }
+        }
+      }
+  
+      if (track_1_total_length !== track_2_total_length) {
+        mismatchedRoads.push(`Roadnumber ${road.roadnumber}: Track 1 total length is ${track_1_total_length}, Track 2 total length is ${track_2_total_length}`);
+      }
+    }
+  
+    const success = mismatchedRoads.length === 0;
+    const message = success ? 'All track lengths match.' : mismatchedRoads.join('\n');
+  
+    assert.equal(success, true, message);
+  });
+  
+  test('startaddressM value should be less than endaddressM value', async () => {
+    const errors = [];
+  
+    for (const road of data) {
+      for (const roadpart of road.roadparts) {
+        for (const track of roadpart.tracks) {
+          if (track.startaddressM > track.endaddressM) {
+            errors.push(`roadnumber ${road.roadnumber}, roadpart ${roadpart.roadpartnumber}, track ${track.track}: startaddressM value (${track.startaddressM}) is not less than endaddressM value (${track.endaddressM})`);
+          }
+        }
+      }
+    }
+  
+    const success = errors.length === 0;
+    const message = success
+      ? 'All startaddressM values are less than end endaddressM.'
+      : `Errors found:\n${errors.join('\n')}`;
+  
+    assert.equal(success, true, message);
+  });
+  
+  test('Roads with a road number less than 70000 should have a road name', async () => {
+    const missingRoadnames = [];
+  
+    for (const road of data) {
+      if (road.roadnumber < 70000) {
+        if (!road.roadname || road.roadname.trim() === "") {
+          missingRoadnames.push(road.roadnumber);
+        }
+      }
+    }
+  
+    const success = missingRoadnames.length === 0;
+    const message = success
+      ? 'All roads have roadnames.'
+      : `The following roadnumbers are missing roadname: ${missingRoadnames.join(', ')}`;
+  
+    assert.equal(success, true, message);
+  });
+  
+}

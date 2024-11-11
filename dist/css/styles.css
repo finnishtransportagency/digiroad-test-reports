@@ -1,0 +1,176 @@
+* {
+    font-family: Tahoma, Arial, sans-serif;
+}
+
+body {
+    margin: 10px 20px;
+    /* margin: 0; */
+}
+circle:hover {
+    cursor: pointer;
+}
+h1, h2, h3, h4, h5, h6 {
+    font-family: Tahoma, Arial, sans-serif;
+    color: #0064AF;
+}
+li {
+    margin: 5px 0;
+}
+svg {
+    position: absolute; 
+    /* position: relative; */
+    top: 0;
+    left: 0;
+    width: 100%; 
+    height: 100%; 
+    /* border: 1px solid #0064AF; */
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th, td {
+    /* border: 1px solid black; */
+    /* padding: 8px; */
+    text-align: left;
+    vertical-align: top;
+}
+th {
+    background-color: #f2f2f2;
+}
+ul {
+    list-style-type: none;
+    padding-left: 20px;
+}
+
+
+
+/* ID */
+
+#passed_tests_graph_dataviz_and_legend {
+    display: flex;
+    padding: 0;
+}
+
+#passed_tests_graph_legends {
+    width: 200px;
+    height: calc(100vh - 80px);
+    margin: 0;
+    border: 0;
+}
+
+#passed_tests_graph_dataviz {
+    position: relative;
+    width: calc(100% - 200px);
+    height: calc(100vh - 80px);
+    border: 1px solid #0064AF;
+    margin: 0;
+}
+
+.legend-color {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+}
+
+.response_times_graph_legends {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+    margin: 0 0 5px 0;
+    height: auto;
+}
+
+#my_dataviz, #response_times_graph_dataviz {
+    position: relative; 
+    /* width: 100vw; */ /* 100% ikkunan leveydestä */
+    width: 100%; /* Olisiko parempi ? */
+    /* width: calc(100% - 40px); */ /* Tätä arvoa käytetty 29.7.2024 asti */
+    /* height: 600px; */ /* Valitse sopiva korkeus */
+    height: calc(100vh - 80px);
+    /* top: 40px; */
+    /* position: absolute;
+    top: 0;
+    left: 0; */
+    border: 1px solid #0064AF;
+    margin: 0 0 100px 0;
+}
+
+/* CLASS */
+
+.active {
+    display: block;
+}
+.activeText {
+    display: inline-block;
+}
+.content {
+    display: none;
+}
+.dimmed {
+    opacity: 0.3;
+}
+.hidden {
+    display: none; 
+}
+.legend:hover {
+    cursor: pointer;
+}
+.legend {
+    font-family: Tahoma, Arial, sans-serif;
+    font-size: 14px;
+}
+.legend rect {
+    fill: none;
+    stroke-width: 2px;
+}
+.legend text {
+    fill: black;
+    font-weight: bold;
+}
+
+.passed_tests_graph_legends {
+    display: inline-block;
+    width: 20%;
+    padding: 10px;
+    /* border: 1px solid #000; */
+    margin: 5px;
+    box-sizing: border-box;
+}
+
+.response_times_graph_legends {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    /* border: 1px solid #000; */
+    margin: 5px;
+    box-sizing: border-box;
+}
+
+.request_result_sign {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 5px;
+    vertical-align: top;
+    font-weight: bold;
+}
+
+.tick text {
+    font-size: 14px; 
+}
+
+.tooltip, .environments_tooltip, .environment_requests_tooltip {
+    font-family: Tahoma, Arial, sans-serif;
+    color: #0064AF;
+    position: absolute;
+    top: 0;
+    left: 0;
+    border: 1px solid black;
+    padding: 5px;
+    background-color: white;
+    pointer-events: none; 
+    display: none; 
+}

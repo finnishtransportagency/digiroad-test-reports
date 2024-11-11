@@ -1,0 +1,19 @@
+{
+  "version": "1",
+  "name": "VIITE_API_COLLECTION",
+  "type": "collection",
+  "ignore": [
+    ".git", 
+    "bin", 
+    "dist",
+    "lib", 
+    "node_modules", 
+    "src"
+  ], 
+  "scripts": {
+    "moduleWhitelist": ["fs", "child_process"],
+    "filesystemAccess": {
+      "allow": true
+    }
+  }
+}

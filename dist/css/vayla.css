@@ -1,0 +1,11 @@
+* {
+    font-family: Tahoma, Arial, sans-serif;
+}
+body {
+    margin: 10px 20px;
+    /* margin: 0; */
+}
+h1, h2, h3 {
+    font-family: Tahoma, Arial, sans-serif;
+    color: #0064AF;
+}

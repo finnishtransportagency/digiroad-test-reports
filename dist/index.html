@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viite | API Test Results</title>
+    <script src="./src/d3.v7.min.js"></script>
+    <!-- <script src="https://d3js.org/d3.v7.min.js"></script> -->
+    <link rel="stylesheet" href="./css/styles.css">
+    <link rel="stylesheet" href="./css/vayla.css">
+
+</head>
+
+<body>
+
+    <p><a href="./index.html"><img src="./images/vayla_sivussa_fi_sv_rgb.png" width="15%" height="15%"></a></p>
+    
+    <h1>Viite</h1>
+    
+    <!-- <p><span id="front_page" class="content"><a href="./index.html">Front Page</a></span> <span id="back" class="content">| <a href="javascript:history.back()" id="back">Back</a></span></p> -->
+
+    <div id="daily_result_information" class="content"></div>
+
+    <div id="daily_results" class="content"></div>
+
+    <div id="daily_summary" class="content"></div>
+
+    <!-- FIRST GRAPH -->
+    <div id="passed_tests_graph_container" class="content">
+        <h2>Passed API Tests Over Time in All Environments</h2>
+        <div id="passed_tests_graph_dataviz_and_legend">
+            <div id="passed_tests_graph_dataviz"></div>
+            <div id="passed_tests_graph_legends" class="passed_tests_graph_legends"></div>
+        </div>
+    </div>
+
+    <!-- SECOND GRAPH -->
+    <div id="response_times_graph_container" class="content">
+        <h2>Response Times for API Test Requests Over Time in the Production Environment</h2>
+        <div id="response_times_graph_dataviz"></div>
+        <div id="response_times_graph_legends" class="response_times_graph_legends"></div>
+    </div>
+
+    <div id="tooltip" class="tooltip"></div>
+
+    
+
+    <script>
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const environmentQueryParam = urlParams.get('environment');
+        const timeQueryParam = urlParams.get('time');
+        const dataEntryIndexQueryParam = urlParams.get('dataEntryIndex');
+        const resultIndexQueryParam = urlParams.get('resultIndex');
+
+        // SCRIPT STARTS HERE
+        document.addEventListener('DOMContentLoaded', () => {
+            main();
+        });
+
+        /*******
+        ********
+        * main *
+        ********
+        *******/
+    
+        // SCRIPT CONTINUES HERE AFTER THE PAGE HAS LOADED
+        async function main() {
+
+            // CHECK AND CHANGE BASEURL FUNCTION WHEN USING ON LOCALHOST
+            const baseURL = getBaseURL();
+
+            // LET*S HIDE THE CONTENTS
+            document.getElementById('passed_tests_graph_container').classList.remove('active');
+            document.getElementById('response_times_graph_container').classList.remove('active');
+            document.getElementById('daily_result_information').classList.remove('active');
+            document.getElementById('daily_summary').classList.remove('active');
+            document.getElementById('daily_results').classList.remove('active');
+
+            if (timeQueryParam && environmentQueryParam && dataEntryIndexQueryParam && resultIndexQueryParam) {
+                setElementVisibleByElementId("daily_result_information");
+                setElementVisibleByElementId("daily_summary");
+                setTextVisibleByElementId("front_page");
+                setTextVisibleByElementId("back");
+
+                const url = `${baseURL}${getDateTimeByEnvironment(timeQueryParam)}/results-${environmentQueryParam}.json`;
+                fetchDataAndHandleErrors(url, "my_dataviz", showDailyResults);
+
+            }
+            else if (timeQueryParam && environmentQueryParam && resultIndexQueryParam) {
+                setElementVisibleByElementId("daily_result_information");
+                setElementVisibleByElementId("daily_summary");
+                setTextVisibleByElementId("front_page");
+                setTextVisibleByElementId("back");
+
+                const url = `${baseURL}${getDateTimeByEnvironment(timeQueryParam)}/results-${environmentQueryParam}.json`;
+                fetchDataAndHandleErrors(url, "my_dataviz", showDailyResults);
+
+            }
+            else if (timeQueryParam && environmentQueryParam) {
+                setElementVisibleByElementId("daily_result_information");
+                setElementVisibleByElementId("daily_summary");
+                setTextVisibleByElementId("front_page");
+                setTextVisibleByElementId("back");
+
+
+                const url = `${baseURL}${getDateTimeByEnvironment(timeQueryParam)}/results-${environmentQueryParam}.json`;
+                fetchDataAndHandleErrors(url, "my_dataviz", showDailySummary);
+
+            }
+            else {
+                
+                setElementVisibleByElementId("passed_tests_graph_container");
+                setElementVisibleByElementId("response_times_graph_container");
+
+                const passed_tests_url = `${baseURL}data/summary.json`;
+                fetchDataAndHandleErrors(passed_tests_url, "passed_tests_graph_dataviz", showPassedTestsGraph);
+
+                const response_times_url = `${baseURL}data/responseTimes.json`;
+                fetchDataAndHandleErrors(response_times_url, "response_times_graph_dataviz", showResponseTimesGraph);
+            }
+        }
+
+        function setElementVisibleByElementId(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.classList.remove("content");
+                element.classList.add("active");
+            }
+        }
+
+        function setTextVisibleByElementId(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.classList.remove("content");
+                element.classList.add("activeText");
+            }
+        }
+
+        function isLocal() {
+            return window.location.protocol === 'file:';
+        }
+
+        // Determine base URL based on environment
+        function getBaseURL() {
+            if ( isLocal() ) {
+                return 'http://localhost:3000/'; // Local development URL
+            } else {
+                return './'; // Production environment URL
+            }
+        }
+
+        function gotoLoginPage() {
+            if ( isLocal() ) {
+                window.location.href = "https://digiroadtestreport.testivaylapilvi.fi/oauth2/"; // Never used. Can be tested when having "404 error".
+                return;
+            }
+            window.location.href = "./oauth2/"; // Production environment URL
+            return; 
+        }
+
+        async function fetchDataAndHandleErrors(url, divContainerId, callback) {
+            try {
+                const data = await fetchData(url);
+                if (data) {
+                    callback(data, divContainerId);
+                } else {
+                    console.error('No data returned');
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        function fetchData(url) {
+            return fetch(url) 
+            .then(response => {
+                if (!response.ok) {
+                    switch(response.status) {
+                        case 403: 
+                            gotoLoginPage();
+                            return; 
+                        case 404:
+                            // gotoLoginPage();
+                            // return;
+                            // 
+                            // window.location.href = "https://digiroadtestreport.testivaylapilvi.fi/oauth2/"; // DON*T USE THIS ON THE SERVER
+                            // return; // DON*T USE THIS ON THE SERVER
+                            throw new Error('404 Not Found: The requested resource could not be found.');    
+                        case 500: 
+                            throw new Error('500 Internal Environment Error: An error occurred on the environment.');
+                        default: 
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                }
+                return response.json();
+            })
+            .catch(error => {
+                if (error instanceof Error) {
+                    console.error('Caught error: ', error.message);
+                } 
+                else {
+                    console.error('Unknown error occurred: ', error);
+                }
+            });
+        }
+
+        function getDateTimeByEnvironment(date) {
+            if ( isLocal() ) {
+                const dateTimeInLocalFormat = convertDateTimeToLocalFormatZ(date); 
+                return dateTimeInLocalFormat;
+            }
+            return date;
+        }
+
+        function convertDateTimeToLocalFormatZ(dateTime) {
+            const dateTimeInLocalFormat = new Date(dateTime);
+            if (isNaN(dateTimeInLocalFormat.getTime())) {
+                throw new Error("Invalid date format");
+            }
+
+            const year = dateTimeInLocalFormat.getUTCFullYear();
+            const month = String(dateTimeInLocalFormat.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(dateTimeInLocalFormat.getUTCDate()).padStart(2, '0');
+            const hours = String(dateTimeInLocalFormat.getUTCHours()).padStart(2, '0');
+            const minutes = String(dateTimeInLocalFormat.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(dateTimeInLocalFormat.getUTCSeconds()).padStart(2, '0');
+            const offset_hours = dateTime.slice(-5, -3); 
+            const offset_minutes = dateTime.slice(-2, -1) + dateTime.slice(-1);
+
+            return `${year}-${month}-${day}T${hours}-${minutes}-${seconds}Z`;
+        }
+
+        function convertDateTimeToLocalFormat(dateTime) {
+            const dateTimeInLocalFormat = new Date(dateTime);
+            if (isNaN(dateTimeInLocalFormat.getTime())) {
+                throw new Error("Invalid date format");
+            }
+
+            const year = dateTimeInLocalFormat.getUTCFullYear();
+            const month = String(dateTimeInLocalFormat.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(dateTimeInLocalFormat.getUTCDate()).padStart(2, '0');
+            const hours = String(dateTimeInLocalFormat.getUTCHours()).padStart(2, '0');
+            const minutes = String(dateTimeInLocalFormat.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(dateTimeInLocalFormat.getUTCSeconds()).padStart(2, '0');
+            const offset_hours = dateTime.slice(-5, -3); 
+            const offset_minutes = dateTime.slice(-2, -1) + dateTime.slice(-1);
+
+            return `${year}-${month}-${day}T${hours}-${minutes}-${seconds}%2B${offset_hours}-${offset_minutes}`;
+        }
+
+        /************
+        *************
+        * showGraph *
+        *************
+        ************/
+
+        function showGraph(data, dataReady, dataSeries, divContainerId, xLabel, yLabel, createCircles, legendContainer, id) {
+
+            // Set the dimensions and margins of the graph
+            const margin = {top: 50, right: 50, bottom: 50, left: 70};
+            // let width = window.innerWidth - margin.left - margin.right - 40;
+            let width = document.getElementById(divContainerId).clientWidth - margin.left - margin.right;
+            let height = window.innerHeight - margin.top - margin.bottom - 80; 
+        
+            let isMouseOverSvg = false;
+            let isMouseOverCircle = false;
+
+            // Define zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([1, 500]) // min and max zoom
+                .filter( event => {
+                    return event.ctrlKey; // Zoom only when Ctrl key is pressed
+                })
+                .on("zoom", event => {
+                    if (isMouseOverSvg && event.sourceEvent) {
+                        updateChart(event);
+                    }
+                });
+            
+            // Append the svg object to the container
+            const svg = d3.select(`#${divContainerId}`)
+                .append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                    .attr("transform",`translate(${margin.left},${margin.top})`)
+                .on("mouseenter", event => { 
+                    isMouseOverSvg = true;
+                    event.preventDefault();
+                })
+                .on("mouseleave", () => { 
+                    isMouseOverSvg = false;
+                })
+                .call(zoom);
+
+            const rect = svg.append("rect")
+                .attr("width", width)
+                .attr("height", height)
+                .style("fill", "none")
+                .style("pointer-events", "all")
+                .attr('transform', `translate(0,0)`)
+                .call(zoom);
+
+            const parseDate = d3.utcParse("%Y-%m-%dT%H:%M:%S%Z");
+            const formatDate = d3.utcFormat("%Y-%m-%dT%H:%M:%S%Z");
+
+            const myColor = d3.scaleOrdinal()
+                .domain(dataSeries)
+                .range(["#0064AF", "#0099FF", "#49C2F1", "#00B0CC", "#207A43", "#8DCB6D", "#FFC300", "#910AA3", "#C73F00", "#FF5100", "#E50083"]); // Customer's colors are being used
+
+            // Add X axis
+            const x = d3.scaleTime()
+            // const x = d3.scaleUtc()
+                .domain(d3.extent(data, d => new Date(d.date)))
+                .range([ 0, width ]);
+            
+            d3.extent(data, d => new Date(d.date)); // IS THIS NEEDED ?
+
+            const xAxis = d3.axisBottom(x); // IS THIS NEEDED ?
+
+            const gx = svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(createXAxis(x));
+
+            let xAxisLabel = svg.append("text")
+                .attr("transform", `translate(${width / 2},${height + margin.bottom - 10})`)
+                .style("text-anchor", "middle")
+                .text(xLabel);
+                // .text(Object.keys(dataReady[0].values[0])[0].toUpperCase());
+
+            // Add Y axis
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(dataReady.flatMap(d => d.values), d => d.value)])
+                .nice()
+                .range([height, 0]);
+
+            const yAxis = d3.axisLeft(y); // IS THIS NEEDED ?
+
+            const gy = svg.append("g")
+                // .call(yAxis);
+                .call(createYAxis(y));
+
+            let yAxisLabel =  svg.append("text")
+                .attr("transform", `rotate(-90)`)
+                .attr("y", 0 - margin.left + 20)
+                .attr("x", 0 - (height / 2))
+                .style("text-anchor", "middle")
+                .text(yLabel);
+                // .text(Object.keys(dataReady[0].values[0])[1].toUpperCase());
+
+            const line = d3.line()
+                .x(d => x(new Date(d.date)))
+                .y(d => y(d.value));
+
+            /*
+            svg.selectAll("myLines")
+                .data(dataReady)
+                .join("path")
+                    .attr("d", d => line(d.values))
+                    .attr("stroke", d => myColor(d.name))
+                    .style("stroke-width", 4)
+                    .style("fill", "none")
+            */
+
+            // Add a clipPath: everything out of this area won't be drawn.
+            const clip = svg.append("defs")
+                .append("svg:clipPath")
+                .attr("id", `clip_${id}`)
+                .append("svg:rect")
+                .attr("width", width )
+                .attr("height", height )
+                .attr("x", 0)
+                .attr("y", 0);
+
+            /******************
+            * Mouse functions *
+            *******************/
+
+            function mouseover(event, d) {
+                if (!event.ctrlKey) {
+                    isMouseOverCircle = true;
+                    showTooltip(event, d);
+                } 
+            }
+
+            function mouseout() {
+                isMouseOverCircle = false;
+                hideTooltip();
+            }
+
+            function mouseclick(event, d) {
+                window.location.href = `?environment=${d.name}&time=${encodeURIComponent(d.date)}`;
+            }
+
+            // Create the scatter variable: where both the circles and the brush take place
+            const scatter = svg.append('g')
+                .attr("clip-path", `url(#clip_${id})`)
+
+            // Add lines
+            scatter
+                .selectAll("myLines")
+                .data(dataReady)
+                .join("path")
+                    .attr("data-env", d => d.name)
+                    .attr("class", "path")
+                    .attr("stroke", d => myColor(d.name))
+                    .attr("d", d => line(d.values))
+                    .style("stroke-width", 4)
+                    .style("fill", "none");
+
+            // Add circles
+            if (createCircles) {
+
+                scatter
+                    // First we need to enter in a group
+                    .selectAll("myDots")
+                    .data(dataReady)
+                    .join('g')
+                        .attr('data-env', d => d.name)
+                        .style("fill", d => myColor(d.name))
+                    // Second we need to enter in the 'values' part of this group
+                    .selectAll("myPoints")
+                    .data(d => d.values)
+                    .join("circle")
+                        .attr("data-env", (d, i, nodes) => {
+                            // `nodes` are the circle DOM elements, and we can use the parent `g` element to get the data-env
+                            const parentG = d3.select(nodes[i].parentNode); // Select the parent <g> element
+                            return parentG.attr('data-env'); // Get the data-env attribute value from the parent <g>
+                        })
+                        // .attr("data-env", d => d.environment)
+                        .attr("cx", d => x(new Date(d.date)))
+                        .attr("cy", d => y(d.value))
+                        .attr("r", 5)
+                        .attr("stroke", "white")
+                        .on("mouseover", mouseover)
+                        .on("mouseout", mouseout)
+                        .on("click", mouseclick);
+            }
+
+            /*************
+             * Functions *
+             *************/
+            
+            /*********************
+             * Tooltip functions *
+             *********************/
+
+            function showTooltip(event, d) {
+                const tooltip = document.getElementById("tooltip");
+                tooltip.style.display = "block";
+                tooltip.style.left = event.pageX + 15 + "px";
+                tooltip.style.top = event.pageY + 15 +"px";
+                tooltip.innerHTML = `
+                    name: ${d.name}<br>
+                    value: ${d.value}<br>
+                    date: ${d.date}
+                `;
+            }
+
+            function hideTooltip() {
+                const tooltip = document.getElementById("tooltip");
+                tooltip.style.display = "none";
+            }
+
+            /***************************
+            * Functions to create axis *
+            ****************************/
+
+            function createXAxis(scale) {
+                const tickIntervals = [0.5, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]; // Possible day intervals
+                let tickInterval = tickIntervals[0]; // Initial value
+
+                // Let's find suitable interval
+                for (let i = 0; i < tickIntervals.length; i++) {
+                    const interval = tickIntervals[i];
+                    const ticks = generateTickValues(scale.domain()[0], scale.domain()[1], interval);
+                    const avgTickDistance = width / ticks.length;
+                    const minDistance = 70; // Lowest distance between ticks
+
+                    if (avgTickDistance >= minDistance) {
+                        tickInterval = interval;
+                        break;
+                    }
+                }
+
+                // Let's create manually tick values with even spaces
+                const tickValues = generateTickValues(scale.domain()[0], scale.domain()[1], tickInterval);
+
+                return d3.axisBottom(scale)
+                    .tickValues(tickValues)
+                    .tickFormat(d3.timeFormat("%Y-%m-%d"));
+            }
+
+            // Function to create tick values manually
+            function generateTickValues(startDate, endDate, interval) {
+                const tickValues = [];
+                let currentDate = new Date(startDate);
+                currentDate.setHours(0, 0, 0, 0); // Time is being reset
+
+                // Let's make sure that ticks will start from 'startDate and end until 'endDate
+                while (currentDate <= endDate) {
+                    if (currentDate >= startDate) {
+                        tickValues.push(new Date(currentDate));
+                    }
+                    currentDate.setDate(currentDate.getDate() + Math.round(interval)); 
+                }
+
+                // Ticks before y-axis will be removed
+                return tickValues.filter(date => date >= startDate);
+            }
+
+            function createYAxis(scale) {
+                const minTickSpacing = 50;
+                const tickCount = Math.max(1, Math.floor(height / minTickSpacing));
+                return d3.axisLeft(scale)
+                    .ticks(tickCount)
+                    .tickFormat(d3.format("d"));
+            }
+           
+            /******************
+            * Other functions *
+            ******************/
+
+            function isPathHiddenByDataEnv(dataEnv) {
+                const paths = svg.selectAll(`path[data-env="${dataEnv}"]`);
+                let isHidden = paths.classed("hidden");
+                return isHidden;
+            }
+            
+            function toggleLegendDimming(event, d, self) {
+                const isActive = d3.select(self).classed("dimmed");
+                d3.select(self).classed("dimmed", !isActive);
+                svg.selectAll(`.line`).filter(lineD => lineD.name === d.name).style("display", isActive ? null : "none");
+            }
+
+            function setLegendVisibilityByDataEnv(dataEnv, visibility) {
+                // const legend = d3.select(`#${id}`);
+                const legends = svg.selectAll(`legend[data-env="${dataEnv}"]`);
+                legends.classed("dimmed", visibility);
+            }
+
+            function setLegendVisibilityByD(d, visibility) {
+                return setLegendVisibilityByDataEnv(d.name, visibility);
+            }
+
+            function setCircleVisibilityByDataEnv(dataEnv, visibility) {
+                const circles = svg.selectAll(`circle[data-env="${dataEnv}"]`);
+                circles.classed("hidden", visibility);
+            }
+
+            function setCircleVisibilityByD(d, visibility) {
+                return setCircleVisibilityByDataEnv(d.name, visibility);
+            }
+
+            function setCircleVisibilityByD2(d, visibility) {
+                const circles = svg.selectAll(`circle[data-name="${d.name}"]`);
+                circles.classed("hidden", visibility);
+            }
+
+            function togglePathVisibilityByDataEnv(dataEnv) {
+                const paths = svg.selectAll(`path[data-env="${dataEnv}"]`);
+                let isHidden = paths.classed("hidden");
+                paths.classed("hidden", !isHidden)
+                isHidden = paths.classed("hidden");
+                return isHidden;
+            }
+
+            function togglePathVisibilityByD(d) {
+                return togglePathVisibilityByDataEnv(d.name);
+            }
+
+            function togglePathVisibilityByD2(d) {
+                const paths = svg.selectAll(`path.line[data-name="${d.name}"]`);
+                const isHidden = paths.classed("hidden");
+                paths.classed("hidden", !isHidden);
+                return !isHidden;
+            }
+
+            function toggleLegendAndPathAndCircleVisibilityByD(d, self) {
+                const visibility = togglePathVisibilityByD(d); 
+                setCircleVisibilityByD(d, visibility);
+                d3.select(self).classed("dimmed", visibility)
+                // setLegendVisibilityByD(d, visibility);
+            }
+
+            function toggleLegendAndPathAndCircleVisibilityByD2(d, self) {
+                const visibility = togglePathVisibilityByD2(d); 
+                setCircleVisibilityByD2(d, visibility);
+                d3.select(self).classed("dimmed", visibility);
+            }
+
+            function togglePathAndCircleVisibility(name) {
+                const path = scatter.selectAll("path")
+                    .filter(d => d.name === name);
+                
+                const circles = scatter.selectAll("circle")
+                    .filter(function(d) {
+                        return d3.select(this.parentNode).datum().name === name;
+                    });
+
+                const isHidden = path.classed("hidden");
+                path.classed("hidden", !isHidden);
+                circles.classed("hidden", !isHidden);
+            }
+            
+            const environments_graph_legend = d3.select(`#${legendContainer}`);
+
+            dataReady.forEach((d, i) => {
+                const legendItem = environments_graph_legend.append("div")
+                    .datum(d)
+                    .attr("class", "legend")
+                    .attr("data-env", d.name)
+                    .on("click", function(event) {
+                        const data = d3.select(this).datum();
+                        toggleLegendAndPathAndCircleVisibilityByD(data, this); // OPTION 2
+                        // toggleLegendDimming(event, d, this); // OPTION 1
+                        // togglePathAndCircleVisibility(d.name); // OPTION 1
+                    });
+
+                legendItem.append("div")
+                    .attr("class", "legend-color")
+                    .style("background-color", myColor(d.name));
+
+                legendItem.append("span")
+                    .html(" <b>" + d.name + "</b>");
+                    // .text(" " + d.name);
+            });
+
+
+            /**************
+            ***************
+            * updateChart *
+            ***************
+            ***************/
+
+            // A function that updates the chart when the user zoom and thus new boundaries are available
+            function updateChart(event) {
+
+                // recover the new scale
+                let newX = event.transform.rescaleX(x);
+                let newY = event.transform.rescaleY(y);
+
+
+                gx
+                    .attr("transform", `translate(0,${height})`)
+                    .call(createXAxis(newX));
+
+                gy.call(createYAxis(newY));
+
+                scatter
+                    .selectAll("path.path")
+                    .attr("d", d => d3.line()
+                        .x(d => newX(new Date(d.date)))
+                        .y(d => newY(d.value))(d.values)
+                    );
+
+                // update circles
+                if (createCircles) {
+
+                    scatter
+                        .selectAll("circle")
+                        .attr("cx", d => newX(new Date(d.date)))
+                        .attr("cy", d => newY(d.value));
+
+                }
+            }
+
+            function updateAxisLabelPosition() {
+                xAxisLabel.remove();
+                
+                xAxisLabel = svg.append("text")
+                    .attr("transform", `translate(${width / 2},${height + margin.bottom - 10})`)
+                    .style("text-anchor", "middle")
+                    .text(xLabel);
+                    // .text(Object.keys(dataReady[0].values[0])[0].toUpperCase());
+
+                yAxisLabel.remove();
+
+                yAxisLabel = svg.append("text")
+                    .attr("transform", `rotate(-90)`)
+                    .attr("y", 0 - margin.left + 20)
+                    .attr("x", 0 - (height / 2))
+                    .style("text-anchor", "middle")
+                    .text(yLabel);
+                    // .text(Object.keys(dataReady[0].values[0])[1].toUpperCase());
+            }
+
+
+
+            /**************************
+            ***************************
+            * window.addEventListener *
+            ***************************
+            ***************************/
+
+            // Event listener to handle Ctrl key state and tooltip display
+            window.addEventListener('keydown', event => {
+                if (event.key === 'Control' && isMouseOverCircle) {
+                    hideTooltip();
+                }
+            });
+
+            // DOES NOT WORK, showTooltip CAUSES EXECPTION
+            window.addEventListener('keyup', (event) => {
+                if (event.key === 'Control' && isMouseOverCircle) {
+                    // Causes exception
+                    showTooltip(event);
+                }
+            });
+
+
+            // Prevent default scroll behavior when Ctrl key is pressed
+            window.addEventListener('wheel', event => {
+                if (event.ctrlKey && isMouseOverSvg) {
+                    event.preventDefault();
+                }
+            }, { passive: false });
+
+            window.addEventListener("resize", () => {
+                // width = window.innerWidth - margin.left - margin.right - 40;
+                width = document.getElementById(divContainerId).clientWidth - margin.left - margin.right;
+                height = window.innerHeight - margin.top - margin.bottom - 80;
+
+                x.range([0, width]);
+                y.range([height, 0]);
+
+                gx
+                    .attr("transform", `translate(0,${height})`)
+                    .call(createXAxis(x));
+
+                gy.call(createYAxis(y));
+
+                const svgElement = d3.select(`#${divContainerId} svg`)
+                    .attr('width', width + margin.left + margin.right)
+                    .attr('height', height + margin.top + margin.bottom);
+
+                svgElement.select(`#clip_${id} rect`)
+                    .attr('width', width)
+                    .attr('height', height);
+
+                    // .translateExtent([[0, 0], [width, height]]);
+
+                
+                rect
+                    .attr("width", width)
+                    .attr("height", height);
+                
+                scatter.selectAll('path')
+                    .attr('d', d => line(d.values));
+
+                if (createCircles) {
+
+                    scatter.selectAll('circle')
+                        .attr('cx', d => x(new Date(d.date)))
+                        .attr('cy', d => y(d.value));
+                
+                }
+
+                updateAxisLabelPosition();
+
+            });
+
+            updateAxisLabelPosition();
+            
+        }
+
+        function showPassedTestsGraph(data, divContainerId) {
+
+            // const parseDate = d3.utcParse("%Y-%m-%dT%H:%M:%S%Z");
+
+            const parsedData = [];
+            for (let key in data) {
+                if (data.hasOwnProperty(key)) {
+                    parsedData.push({
+                        date: key.replace(/\//g, ""),
+                        dev: data[key].dev,
+                        qa: data[key].qa,
+                        prod: data[key].prod
+                    });
+                }
+            }
+
+            // SORT DATA BY DATE IN ASCENDING ORDER
+            parsedData.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                return dateA - dateB;
+            });
+
+            const dataSeries = ["prod", "qa", "dev"];
+            const dataReady = dataSeries.map(dataSerieName => {
+                return {
+                    name: dataSerieName,
+                    values: parsedData.map(d => {
+                        return {date: d.date, value: +d[dataSerieName], name: dataSerieName};
+                    })
+                };
+            });
+
+            showGraph(parsedData, dataReady, dataSeries, divContainerId, "Date", "Passed Tests [pcs]", true, "passed_tests_graph_legends", 1);
+        }
+
+        function showResponseTimesGraph(data, divContainerId) {
+
+            // const parseDate = d3.utcParse("%Y-%m-%dT%H:%M:%S%Z");
+            const parseDate = d3.utcParse("%Y-%m-%dT%H:%M:%SZ");
+
+            // Only "prod" environment will be filtered
+            const prodData = data.filter(d => d.env === "prod");
+
+            // parsedData table will be created only for "prod" environment
+            const parsedData = prodData.map(d => ({
+                date: d.timestamp,
+                value: d.responseTime,
+                test: d.test,
+                env: d.env
+            }));
+            
+            const dataSeries = [
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/changes/road_numbers?since={{since_var}}&until={{until_var}}", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/integration/linear_location/changes?since={{since_var}}", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/integration/road_address?municipality={{municipality_var}}", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/integration/roadnames/changes?since={{since_var}}", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/integration/roadway/changes?since={{since_var}}", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/integration/roadway_changes/changes?since={{since_var}}", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/integration/summary", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/search/road_address/{{road_var}}/{{roadPart_var}}/{{startAddress_var}}/{{endAddress_var}}/?", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/search/road_address/{{road_var}}/{{roadPart_var}}/{{address_var}}/?", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/search/road_address/{{road_var}}/{{roadPart_var}}/?", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/search/road_address/{{road_var}}/", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/search/road_address/?linkId={{linkId_var}}", 
+                "GET https://devapi.testivaylapilvi.fi/viite/api/viite/search/road_numbers?"
+            ];
+
+            // dataReady table will be created only for "prod" environment
+            const dataReady = Array.from(
+                d3.group(parsedData, d => d.test),
+                ([key, values]) => ({ name: key, values: values})
+            );
+            
+            showGraph(parsedData, dataReady, dataSeries, divContainerId, "Date", "Response Time [ms]", false, "response_times_graph_legends", 2);
+        }
+
+
+        /********************
+         ********************
+         * showDailySummary *
+         ********************
+         * FUNCTIONS        *
+         ********************
+         ********************/
+
+
+        function getSignByBoolean(isTrue) {
+            if (isTrue) {
+                return '<span style="color: green;">&#10003;</span>';
+            }
+            return '<span style="color: red">&#10007;</span>';
+        }
+            
+        function getSignByResult(result) {
+            return getSignByBoolean(result === 'pass');
+        }
+
+        function addDailyResultInformation(timeQueryParam, environmentQueryParam) {
+
+            const header = document.createElement('h2');                             
+            header.innerText = `Test Collection Summary`;
+            document.getElementById('daily_result_information').appendChild(header);
+
+            if (timeQueryParam && environmentQueryParam) {
+                const content = document.createElement('p');
+                content.innerHTML = `Test execution time: <b>${timeQueryParam}</b>`;
+                document.getElementById('daily_result_information').appendChild(content);
+            }
+            if (environmentQueryParam) {
+                const content = document.createElement('p');
+                content.innerHTML = `Test environment: <b>${environmentQueryParam}</b>`;
+                document.getElementById('daily_result_information').appendChild(content);
+            }
+
+        }
+
+        function showDailyResults(data) {
+            let dataEntryIndex = 0;
+            const dataEntry = data[dataEntryIndex]; 
+            const result = dataEntry.results[resultIndexQueryParam];
+
+            console.log("Result:", result.assertionResults[0]);
+
+            let passedAssertionAmount = 0;
+            let totalAssertionAmount = result.assertionResults.length;
+
+            let passedTestAmount = 0;
+            let totalTestAmount = result.testResults.length;
+
+            const header = document.createElement('h2');
+            header.innerText = "Test Request"; 
+            document.getElementById('daily_summary').appendChild(header); 
+
+            const content = document.createElement('p');
+
+            content.innerHTML = `<span id="request_result_sign_${resultIndexQueryParam}" class="request_result_sign"></span> <span id="request_result_${resultIndexQueryParam}"></span> <span id="request_result_numbers_${resultIndexQueryParam}"></span> ${result.request.method} ${result.request.url}`;
+            // content.innerHTML = `<span id="request_result_sign_${resultIndex}"></span> <span id="request_result_${resultIndex}"></span> <span id="request_result_numbers_${resultIndex}"></span> <a href="?environment=${environmentQueryParam}&time=${getDateTimeByEnvironment(timeQueryParam)}&dataEntryIndex=${dataEntryIndex}&resultIndex=${resultIndex}">${result.request.method} ${result.request.url}</a>`;
+            document.getElementById('daily_summary').appendChild(content); 
+
+            document.getElementById('daily_summary').appendChild(document.createElement('p')).innerHTML = `Test execution time: <b>${timeQueryParam}</b>`;
+            document.getElementById('daily_summary').appendChild(document.createElement('p')).innerHTML = `Runtime: <b>${Math.round(result.runtime * 1000)} ms</b>`;
+            document.getElementById('daily_summary').appendChild(document.createElement('p')).innerHTML = `Response time: <b>${result.response.responseTime} ms</b>`;
+
+            const headerTestResults = document.createElement('h2');
+            headerTestResults.innerText = "Test Results"; 
+            document.getElementById('daily_summary').appendChild(headerTestResults); 
+
+            /* Assertion results */
+
+            const assertionResultDiv = document.createElement('div');
+            const assertionResultTable = document.createElement('table');
+
+            const testResultDiv = document.createElement('div');
+            const testResultTable = document.createElement('table');
+
+            for (let assertionResultIndex = 0; assertionResultIndex < result.assertionResults.length; assertionResultIndex++) {
+                const assertionResult = result.assertionResults[assertionResultIndex];
+                console.log(assertionResult);
+                if (assertionResult.status === 'pass') { 
+                    passedAssertionAmount++; 
+                }
+                // if (resultIndexQueryParam && resultIndexQueryParam == resultIndex) {
+                    let errorMessage = "";
+                    if (assertionResult.error) {
+                        errorMessage = `, ERROR: "${assertionResult.error}"`;
+                    }
+                    testResultTable.innerHTML += `
+                        <tr>
+                            <td><span class="request_result_sign">${getSignByResult(assertionResult.status)}</span></td>
+                            <td>${assertionResult.status.toUpperCase()}</td>
+                            <td>${assertionResult.lhsExpr} ${assertionResult.rhsExpr}${errorMessage}</td>
+                        </tr>
+                    `;
+                // }
+            }
+
+            /* Test results */
+
+            for (let testResultIndex = 0; testResultIndex < totalTestAmount; testResultIndex++) {
+                const testResult = result.testResults[testResultIndex];
+                if (testResult.status === 'pass') { 
+                    passedTestAmount++; 
+                }
+                // if (resultIndexQueryParam && resultIndexQueryParam == resultIndex) {
+                    let errorMessage = "";
+                    if (testResult.error) {
+                        errorMessage = `, ERROR: "${testResult.error}"`;
+                    }
+                    testResultTable.innerHTML += `
+                        <tr>
+                            <td><span class="request_result_sign">${getSignByResult(testResult.status)}</span></td>
+                            <td>${testResult.status.toUpperCase()}</td>
+                            <td>${testResult.description}${errorMessage}</td>
+                        </tr>
+                    `;
+                // }
+            }
+
+            assertionResultDiv.appendChild(assertionResultTable);
+            document.getElementById('daily_summary').appendChild(assertionResultDiv);     
+            testResultDiv.appendChild(testResultTable);
+            document.getElementById('daily_summary').appendChild(testResultDiv);
+ 
+            function createIndentedList(data) {
+                if (typeof data !== 'object' || data === null) {
+                    return document.createTextNode(data);
+                }
+
+                const ul = document.createElement('ul');
+                for (const [key, value] of Object.entries(data)) {
+                    const li = document.createElement('li');
+                    li.appendChild(document.createTextNode(`${key}: `));
+                    li.appendChild(createIndentedList(value));
+                    ul.appendChild(li);
+                }
+                return ul;
+            }
+
+            function appendRow(table, key, value, parentKey = '') {
+                const row = document.createElement('tr');
+                const keyCell = document.createElement('td');
+                const valueCell = document.createElement('td');
+
+                keyCell.textContent = parentKey ? `${parentKey}.${key}` : key;
+                if (key === 'data') {
+                    // valueCell.appendChild(createIndentedList(value));
+                    valueCell.innerHTML = `<pre>${JSON.stringify(value, null, 4)}</pre>`;
+                } else {
+                    valueCell.textContent = value;
+                }
+
+                row.appendChild(keyCell);
+                row.appendChild(valueCell);
+                table.appendChild(row);
+            }
+
+            function iterateNodeAndAddToTable(table, headers, parentKey = '') {
+                for (const [key, value] of Object.entries(headers)) {
+                    if (key === 'data') {
+                        appendRow(table, key, value, parentKey);
+                    } else if (typeof value === 'object' && !Array.isArray(value)) {
+                        iterateNodeAndAddToTable(table, value, parentKey ? `${parentKey}.${key}` : key);
+                    } else {
+                        appendRow(table, key, value, parentKey);
+                    }
+                }
+            }
+
+            const headerResponse = document.createElement('h2');
+            headerResponse.innerText = "Response to Test Request"; 
+            document.getElementById('daily_summary').appendChild(headerResponse); 
+
+            const responseDiv = document.createElement('div');
+            const responseTable = document.createElement('table');
+
+            iterateNodeAndAddToTable(responseTable, result.response);
+
+            responseDiv.appendChild(responseTable);
+            document.getElementById('daily_summary').appendChild(responseDiv);  
+
+
+
+            /* All assertions and tests passed */
+            console.log(passedAssertionAmount);
+            console.log(passedTestAmount);
+            console.log(totalAssertionAmount);
+            console.log(totalTestAmount);
+            const assertionsAndRequestsPassed = (passedAssertionAmount+passedTestAmount)/(totalAssertionAmount+totalTestAmount) === 1;
+            console.log(assertionsAndRequestsPassed);
+            document.getElementById(`request_result_sign_${resultIndexQueryParam}`).innerHTML = getSignByBoolean(assertionsAndRequestsPassed);
+            document.getElementById(`request_result_${resultIndexQueryParam}`).innerHTML = `${assertionsAndRequestsPassed ? "PASS" : "FAIL"}`;
+            document.getElementById(`request_result_numbers_${resultIndexQueryParam}`).innerHTML = `(${passedAssertionAmount+passedTestAmount}/${totalAssertionAmount+totalTestAmount})`;
+
+        }
+
+        /********************
+         ********************
+         * showDailySummary *
+         ********************
+         ********************/
+
+
+        function showDailySummary(data) {
+
+            // const formatDate = d3.utcFormat("%Y-%m-%dT%H-%M-%S%Z");
+
+            addDailyResultInformation(timeQueryParam, environmentQueryParam);
+
+            let dataEntryIndex = 0;
+
+            for (let dataIndex = 0; dataIndex < data.length; dataIndex++) {
+                dataEntry = data[dataIndex];
+
+                const contentDiv = document.createElement('div');
+                contentDiv.innerHTML = `
+                    <p>Test requests: <b>${dataEntry.summary.totalRequests}</b></p>
+                    <p>Passed tests: <b>${dataEntry.summary.passedAssertions+dataEntry.summary.passedTests}/${dataEntry.summary.totalAssertions+dataEntry.summary.totalTests}</b></p>
+                `;
+
+                document.getElementById('daily_summary').appendChild(contentDiv);
+
+                const content = document.createElement('h2');                             
+                content.innerText = `Test Collection Requests`;
+                document.getElementById('daily_summary').appendChild(content);
+
+                for (let resultIndex = 0; resultIndex < dataEntry.results.length; resultIndex++) {
+                    result = dataEntry.results[resultIndex]; 
+
+                    let passedAssertionAmount = 0;
+                    let totalAssertionAmount = result.assertionResults.length;
+
+                    let passedTestAmount = 0;
+                    let totalTestAmount = result.testResults.length;
+
+                    const content = document.createElement('p');                             
+
+
+                    content.innerHTML = `<span id="request_result_sign_${resultIndex}" class="request_result_sign"></span> <span id="request_result_${resultIndex}"></span> <span id="request_result_numbers_${resultIndex}"></span> <a href="?environment=${environmentQueryParam}&time=${encodeURIComponent(timeQueryParam)}&dataEntryIndex=${dataEntryIndex}&resultIndex=${resultIndex}">${result.request.method} ${result.request.url}</a>`;
+                    // content.innerHTML = `<span id="request_result_sign_${resultIndex}"></span> <span id="request_result_${resultIndex}"></span> <span id="request_result_numbers_${resultIndex}"></span> <a href="?environment=${environmentQueryParam}&time=${getDateTimeByEnvironment(timeQueryParam)}&dataEntryIndex=${dataEntryIndex}&resultIndex=${resultIndex}">${result.request.method} ${result.request.url}</a>`;
+                    document.getElementById('daily_summary').appendChild(content); 
+
+
+
+                    /* Assertion results */
+
+
+                    for (let assertionResultIndex = 0; assertionResultIndex < result.assertionResults.length; assertionResultIndex++) {
+                        const assertionResult = result.assertionResults[assertionResultIndex];
+                        console.log(assertionResult);
+                        if (assertionResult.status === 'pass') { 
+                            passedAssertionAmount++; 
+                        }
+                    }
+
+                    /* Test results */
+
+                    for (let testResultIndex = 0; testResultIndex < totalTestAmount; testResultIndex++) {
+                        const testResult = result.testResults[testResultIndex];
+                        if (testResult.status === 'pass') { 
+                            passedTestAmount++; 
+                        }
+                    }
+
+
+                    /* All assertions and tests passed */
+                    console.log(passedAssertionAmount);
+                    console.log(passedTestAmount);
+                    console.log(totalAssertionAmount);
+                    console.log(totalTestAmount);
+                    const assertionsAndRequestsPassed = (passedAssertionAmount+passedTestAmount)/(totalAssertionAmount+totalTestAmount) === 1;
+                    console.log(assertionsAndRequestsPassed);
+                    document.getElementById(`request_result_sign_${resultIndex}`).innerHTML = getSignByBoolean(assertionsAndRequestsPassed);
+                    document.getElementById(`request_result_${resultIndex}`).innerHTML = `${assertionsAndRequestsPassed ? "PASS" : "FAIL"}`;
+                    document.getElementById(`request_result_numbers_${resultIndex}`).innerHTML = `(${passedAssertionAmount+passedTestAmount}/${totalAssertionAmount+totalTestAmount})`;
+                }
+
+            }
+
+        }
+
+    </script>
+
+</body>
+</html>

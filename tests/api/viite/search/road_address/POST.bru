@@ -1,0 +1,44 @@
+meta {
+  name: Returns all the road addresses for the given links. Return values are listed as linear locations.
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/viite/search/road_address/
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-Key: {{X-API-Key}}
+}
+
+body:json {
+  ["3e31f193-7084-448e-8a91-b93fd757784d:1", "6981723f-37ef-4262-9e8c-8830e0d18c78:1"]
+}
+
+vars:pre-request {
+  ~temp: 3e31f193-7084-448e-8a91-b93fd757784d:1
+}
+
+assert {
+  res.status: eq 200
+  res.statusText: eq OK
+  ~res.responseTime: lte 10000
+}
+
+tests {
+  
+  const { common_schema_test_for_response_data_and_schema_js_file, parse_test_data_from_json_file } = require('./tests/common_tests/common_schema_test_for_all.js');
+  const { common_tests_for_all } = require('./tests/common_tests/common_tests_for_all.js');
+  const { common_tests_for_valid_credentials } = require('./tests/common_tests/common_tests_for_valid_credentials.js');
+    
+  const data = res.body;
+  // const data = parse_test_data_from_json_file('./tests/api/viite/integration/summary', 'test_data_for_valid_credentials.json'); 
+  
+  common_schema_test_for_response_data_and_schema_js_file(data, './tests/api/viite/search/road_address', 'schema_for_valid_credentials.js'); 
+  common_tests_for_all(); 
+  common_tests_for_valid_credentials();
+  
+}
