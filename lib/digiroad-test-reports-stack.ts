@@ -24,15 +24,8 @@ export class digiroadtestreportsStack extends Stack {
     super(scope, id, props);
 
     // Test results
-    const dataBucket = !true ? new Bucket(this, 'S3BucketForTestResults', {
-      removalPolicy: RemovalPolicy.RETAIN,
-      autoDeleteObjects: false,
-      bucketName: `finnishtransportagency-digiroad-test-reports`,
-      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
-      objectOwnership: ObjectOwnership.BUCKET_OWNER_ENFORCED,
-    })
-    : Bucket.fromBucketAttributes(this, 'S3BucketForTestResults', {
-      bucketName: 'finnishtransportagency-digiroad-test-reports'
+    const dataBucket = Bucket.fromBucketAttributes(this, 'S3BucketForTestResults', {
+      bucketName: 'digiroad-test-automation-artifact-bucket'
     })
     const dataOAI = new OriginAccessIdentity(this, 'dataOAI', {
       comment: `Allows CloudFront access to S3 data bucket`,
@@ -78,14 +71,14 @@ export class digiroadtestreportsStack extends Stack {
     //
     // certificate is located in us-east-1
     const cert = Certificate.fromCertificateArn(this, 'ac',
-      'arn:aws:acm:us-east-1:783354560127:certificate/d2c9d643-0571-4833-ae00-2da45431a9ea'
+      'arn:aws:acm:us-east-1:475079312496:certificate/5c87ea8d-0f81-4053-bc44-f2e3e3f43feb'
     )
     const cdn = new Distribution(this, 'MyDistribution', {
-        comment: 'CDN for Viite API test results',
+        comment: 'CDN for DR test results',
         defaultRootObject: 'index.html',
 
-        domainNames: ['digiroadtestreport.testivaylapilvi.fi'],
-        certificate: cert,
+        // domainNames: ['digiroadtestreports.testivaylapilvi.fi'],
+        // certificate: cert,
         //webAclId: wafArn,
         minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021, // oli TLS_V1_1_2016
         priceClass: PriceClass.PRICE_CLASS_100,
@@ -126,7 +119,7 @@ export class digiroadtestreportsStack extends Stack {
 
     // Generate a CloudFront key pair
     const publicKey = new PublicKey(this, 'MyPublicKey', {
-      encodedKey: StringParameter.fromStringParameterName(this, 'pubkey', '/digiroadtestreport/cloudfront/key/pub').stringValue,
+      encodedKey: StringParameter.fromStringParameterName(this, 'pubkey', '/digiroadtestreports/cloudfront/key/pub').stringValue,
     });    
     const keyGroup = new KeyGroup(this, 'MyKeyGroup', {
       items: [publicKey],
@@ -151,7 +144,7 @@ export class digiroadtestreportsStack extends Stack {
       trustedKeyGroups: [ keyGroup ],
     });
 
-    cdn.addBehavior('/oauth2/*', new HttpOrigin('digiroadtestreport-proxy.testivaylapilvi.fi'), {
+    cdn.addBehavior('/oauth2/*', new HttpOrigin('digiroad-test-reports-proxy.testivaylapilvi.fi'), { //katottava eliaksen kanssa
       allowedMethods: AllowedMethods.ALLOW_ALL,
       cachePolicy: noCachePolicy,
       viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -222,20 +215,8 @@ export class digiroadtestreportsStack extends Stack {
           },
           build: {
             commands: [
-              'npx bru --version',
-              'npx cdk deploy --all --exclusive --require-approval never',
-              `export TARGET=\`date -u +"%Y-%m-%dT%H:%M:%SZ"\``,
-              `export DEVKEY=\`aws ssm get-parameter --name '/dev/viite/apiGateway' --with-decryption | jq -r .Parameter.Value\``,
-              `export QAKEY=\`aws ssm get-parameter --name '/qa/viite/apiGateway' --with-decryption | jq -r .Parameter.Value\``,
-              `export PRODKEY=\`aws ssm get-parameter --name '/prod/viite/apiGateway' --with-decryption | jq -r .Parameter.Value\``,
-              `BASE='https://devapi.testivaylapilvi.fi/viite' APIKEY=$DEVKEY npx bru run --env dev --output results-dev.json || true`,
-              `BASE='https://api.testivaylapilvi.fi/viite' APIKEY=$QAKEY npx bru run --env dev --output results-qa.json || true`,
-              `BASE='https://api.vaylapilvi.fi/viite' APIKEY=$PRODKEY npx bru run --env dev --output results-prod.json || true`,
-              `aws s3 cp results-dev.json s3://${dataBucket.bucketName}/$TARGET/`,
-              `aws s3 cp results-qa.json s3://${dataBucket.bucketName}/$TARGET/`,
-              `aws s3 cp results-prod.json s3://${dataBucket.bucketName}/$TARGET/`,
-              `aws s3 cp ./dist s3://${websiteBucket.bucketName}/ --recursive`,
-              `aws cloudfront create-invalidation --distribution-id E2ION4DK2QI6VQ --paths "/index.html" "/css/styles.css" "/css/vayla.css" "/images" `
+               `aws s3 cp ./dist s3://${websiteBucket.bucketName}/ --recursive`,
+               `aws cloudfront create-invalidation --distribution-id E446FOPY1QLAS --paths "/index.html" "/css/styles.css" "/css/vayla.css" "/images" ` //distro id vaihdettava
             ],
           },
         },
@@ -249,7 +230,7 @@ export class digiroadtestreportsStack extends Stack {
     cdn.grantCreateInvalidation(runTests.role!)
 
     // Create dev-pipeline and add stages
-    const pipeline = new Pipeline(this, `ApiTestPipeline`, {
+    const pipeline = new Pipeline(this, `TestReportsPipeline`, {
       pipelineName: `digiroad-test-reports`
     });
 
@@ -262,10 +243,10 @@ export class digiroadtestreportsStack extends Stack {
           output: sourceOutput,
           owner: 'finnishtransportagency',
           repo: 'digiroad-test-reports',
-          branch: 'master',
+          branch: 'main',
           actionName: 'GithubSource',
           oauthToken: Secret.fromSecretAttributes(this, 'GitHubToken', {
-            secretCompleteArn: 'arn:aws:secretsmanager:eu-west-1:783354560127:secret:github/oauth/token-mRI6v3'
+            secretCompleteArn: 'arn:aws:secretsmanager:eu-west-1:475079312496:secret:GITHUB_PAT-CqR1N2'
           }).secretValue,
         }),
       ]
@@ -313,17 +294,17 @@ export class digiroadtestreportsStack extends Stack {
         minify: true,
       },
       environment: {
-        DOMAIN: 'digiroadtestreport.testivaylapilvi.fi',
+        DOMAIN: 'digiroad-test-reports.testivaylapilvi.fi',
         DISTRIBUTION_DOMAIN: cdn.distributionDomainName,
         KEY_PAIR_ID: publicKey.publicKeyId,
       }
     });
     StringParameter.fromSecureStringParameterAttributes(this, 'privkey', {
-      parameterName: '/digiroadtestreport/cloudfront/key/priv'
+      parameterName: '/digiroadtestreports/cloudfront/key/priv'
     }).grantRead(auth)
 
     // Function url is not working with väylä network so let's build up alb and target 80 port to lambda
-    const vpcId = 'vpc-017797e470d94956b' //''.valueFromLookup(this, `${ENV}.vpc`);
+    const vpcId = 'vpc-0f430b7fedef04ba3' //''.valueFromLookup(this, `${ENV}.vpc`);
     const vpc = Vpc.fromLookup(this, 'vpc', {
       vpcId,
       isDefault: false
@@ -346,7 +327,7 @@ export class digiroadtestreportsStack extends Stack {
       vpc,
       internetFacing: false,
       securityGroup: albSg,
-
+      //Eliakselle
     })
 
     let targetGrp;
