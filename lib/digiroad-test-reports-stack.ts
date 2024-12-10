@@ -77,8 +77,8 @@ export class digiroadtestreportsStack extends Stack {
         comment: 'CDN for DR test results',
         defaultRootObject: 'index.html',
 
-        // domainNames: ['digiroadtestreports.testivaylapilvi.fi'],
-        // certificate: cert,
+         domainNames: ['digiroadtestreports.testivaylapilvi.fi'],
+         certificate: cert,
         //webAclId: wafArn,
         minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021, // oli TLS_V1_1_2016
         priceClass: PriceClass.PRICE_CLASS_100,
@@ -242,8 +242,8 @@ export class digiroadtestreportsStack extends Stack {
         new GitHubSourceAction({
           output: sourceOutput,
           owner: 'finnishtransportagency',
-          repo: 'digiroad-test-reports',
-          branch: 'main',
+          repo: 'digiroad-test-automation',
+          branch: 'aws-qa',
           actionName: 'GithubSource',
           oauthToken: Secret.fromSecretAttributes(this, 'GitHubToken', {
             secretCompleteArn: 'arn:aws:secretsmanager:eu-west-1:475079312496:secret:GITHUB_PAT-CqR1N2'

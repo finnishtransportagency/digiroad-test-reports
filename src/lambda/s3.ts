@@ -19,10 +19,6 @@ export const listDateDirectories = async (Bucket:string): Promise<string[]> => {
       const command = new ListObjectsV2Command(params);
       const response = await s3Client.send(command) as ListObjectsV2CommandOutput;
   
-      if (response.CommonPrefixes) {
-        dateDirectories.push(...response.CommonPrefixes.filter(cp => isDateString(cp.Prefix ?? '')).map(cp => cp.Prefix as string));
-      }
-  
       continuationToken = response.NextContinuationToken;
     } while (continuationToken);
   

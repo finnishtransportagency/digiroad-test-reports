@@ -38,7 +38,7 @@ export const handler = async (event: ALBEvent): Promise<ALBResult> => {
             policy,
             privateKey,
         });
-        console.log(JSON.stringify(signedCookies, 2, null))
+        console.log(JSON.stringify(signedCookies, null, 2));
         return {
             statusCode: 302,
             multiValueHeaders: {
