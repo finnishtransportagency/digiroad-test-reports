@@ -243,7 +243,7 @@ export class digiroadtestreportsStack extends Stack {
           output: sourceOutput,
           owner: 'finnishtransportagency',
           repo: 'digiroad-test-automation',
-          branch: 'aws-qa',
+          branch: 'AWS-QA',
           actionName: 'GithubSource',
           oauthToken: Secret.fromSecretAttributes(this, 'GitHubToken', {
             secretCompleteArn: 'arn:aws:secretsmanager:eu-west-1:475079312496:secret:GITHUB_PAT-CqR1N2'
@@ -259,7 +259,7 @@ export class digiroadtestreportsStack extends Stack {
           project: runTests,
           input: sourceOutput,
           environmentVariables: {
-            ENV: {value: 'dev'},
+            ENV: {value: 'qa'},
             //ENVIRONMENT: {value: environment},
             //TARGET_ACCOUNT: {value: account},
           },

@@ -20,7 +20,8 @@ const getS3Key = (): string => {
   // päivämäärä
   const date = new Date();
   
-  // formatoidaan päivämäärä vastaamaan S3:a
+  // formatoidaan päivämäärä vastaamaan S3:a (HUOM: kuluvaa edeltävä päivä)
+  date.setDate(date.getDate() - 1); // Aseta päivämäärä eiliseen
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -93,6 +94,7 @@ const parseRobotOutputXML = (xmlData: string) => {
 }
 
 const readData = async () => {
+  console.log("Read data")
   const zipKey = getS3Key()
   const bucketName = process.env.BUCKET!;
   const robotDataList = await readRobotFrameworkData(bucketName, zipKey);
@@ -133,6 +135,7 @@ interface CodePipelineJobEvent extends APIGatewayProxyEvent {
 }
 
 export const handler = async (event: CodePipelineJobEvent, context: Context): Promise<string> => {
+  
   const codePipelineClient = new CodePipelineClient({});
   const jobId = event['CodePipeline.job'].id;
 
