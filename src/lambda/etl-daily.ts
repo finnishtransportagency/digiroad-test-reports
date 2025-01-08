@@ -7,12 +7,12 @@ import { XMLParser } from 'fast-xml-parser';
 import JSZip = require("jszip")
 
 // Helper function to convert stream to string
-const streamToString = (stream: any): Promise<string> => {
+const streamToString = (stream: any): Promise<any> => {
   const chunks: Uint8Array[] = [];
   return new Promise((resolve, reject) => {
     stream.on("data", (chunk: Uint8Array) => chunks.push(chunk));
     stream.on("error", reject);
-    stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
   });
 };
 
@@ -47,23 +47,33 @@ const getS3Key = (): string => {
 // Function to get data from S3 and extract XML content from a zip file
 const readRobotFrameworkData = async (bucketName: string, zipKey: string) => {
   try {
+    console.log("1")
     const s3Client = new S3Client({ region: process.env.AWS_REGION });
+    console.log("2")
     const command = new GetObjectCommand({ Bucket: bucketName, Key: zipKey });
+    console.log("3")
     const response = await s3Client.send(command);
-
+    console.log("4")
     const zipData = await streamToString(response.Body);
+    console.log("5", zipKey)
     const zip = await JSZip.loadAsync(zipData);
+    console.log("6")
 
     // Find and read the XML file(s) inside the ZIP
-    const xmlFiles = Object.keys(zip.files).filter(fileName => fileName.match(/^output-.*\.xml$/));
+    const xmlFiles = Object.keys(zip.files).filter(fileName => fileName.match(/.*output-.*\.xml$/));
+    console.log("7")
     if (xmlFiles.length === 0) {
       throw new Error("No XML files found in the ZIP");
     }
-    
+    console.log("8")
     const xmlDataList = await Promise.all(xmlFiles.map(async xmlFileName => {
+      console.log("9")
       const xmlFile = zip.files[xmlFileName];
+      console.log("10")
       const xmlData = await xmlFile.async("string");
+      console.log("11")
       return parseRobotOutputXML(xmlData);
+      console.log("12")
     }));
     
     // Return parsed data
@@ -75,22 +85,26 @@ const readRobotFrameworkData = async (bucketName: string, zipKey: string) => {
 }
 
 const parseRobotOutputXML = (xmlData: string) => {
-  const parser = new XMLParser();
+  const parser = new XMLParser({ignoreAttributes : false});
   const jsonObj = parser.parse(xmlData);
 
   //Tutkitaan parsettu xml-olio <total> -datan löytämiseksi
   const totalStats = jsonObj?.robot?.statistics?.total?.stat;
+  console.log(jsonObj?.robot?.statistics)
+  console.log(jsonObj?.robot?.statistics?.total)
+  console.log(totalStats)
   if (!totalStats) {
     throw new Error("Unable to find <total> data in the XML");
   }
 
   //palautetaan tarpeelliset <stat> -elementit
-  return totalStats.map((stat: any) => ({
-    pass: stat["@_pass"],
-    fail: stat["@_fail"],
-    skip: stat["@_skip"],
-    name: stat["#text"]
-  }));
+  //<stat pass="109" fail="47" skip="0">All Tests</stat>
+  return {
+    pass: totalStats["@_pass"],
+    fail: totalStats["@_fail"],
+    skip: totalStats["@_skip"],
+    name: totalStats["#text"]
+  };
 }
 
 const readData = async () => {
@@ -98,14 +112,14 @@ const readData = async () => {
   const zipKey = getS3Key()
   const bucketName = process.env.BUCKET!;
   const robotDataList = await readRobotFrameworkData(bucketName, zipKey);
-
+  console.log(robotDataList, "1")
   const data: any = {};
   
-  for (const robotData of robotDataList) {
-    // Assuming robotData contains an array of parsed XML data for each file
-    for (const dataEntry of robotData) {
+
+      console.log(robotDataList, "2")
       const date = new Date().toISOString().slice(0, 10); // Current date as an example
       const key = `data/${date}.json`;
+      console.log(robotDataList, "3")
       if (!(await s3has(bucketName, key))) {
         const dailyData = (entry: any) => ({
           date,
@@ -114,7 +128,7 @@ const readData = async () => {
           skipped: Number(entry.skip),
           name: entry.name
         });
-      
+        console.log(robotDataList, "4")
         try {
           const data = {
             qa: dailyData(dataEntry),
@@ -125,8 +139,6 @@ const readData = async () => {
         }
       }
     }
-  }
-}
 
 interface CodePipelineJobEvent extends APIGatewayProxyEvent {
   'CodePipeline.job': {
